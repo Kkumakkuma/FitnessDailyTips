@@ -1,0 +1,34 @@
+title: FitnessDailyTips
+description: "Your daily source for fitness tips, workout routines, exercise guides, and healthy living advice."
+url: "https://kkumakkuma.github.io"
+baseurl: "/FitnessDailyTips"
+permalink: /:year/:month/:day/:title/
+future: true
+
+theme: minima
+
+author:
+  name: FitnessDailyTips
+  email: ""
+
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+  - jekyll-sitemap
+
+defaults:
+  - scope:
+      path: ""
+      type: "posts"
+    values:
+      layout: "post"
+      comments: true
+
+google_analytics: "G-5L40K3SBQT"
+
+exclude:
+  - scripts/
+  - .github/
+  - README.md
+  - Gemfile
+  - Gemfile.lock
