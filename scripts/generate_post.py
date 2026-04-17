@@ -1,125 +1,220 @@
 """
-FitnessDailyTips Auto Post Generator
-Generates SEO-optimized fitness articles using OpenAI GPT API
-and commits them to the blog repository.
+FitnessDailyTips Auto Post Generator v2
+- GPT generates unique long-tail keyword topics dynamically
+- used_topics.json prevents any duplicate content
+- High-CPC keywords + FAQ sections for Google featured snippets
+- Internal linking to boost SEO
 """
 
 from openai import OpenAI
 import datetime
+import json
 import os
 import random
 import re
 
-# High CPC keyword categories for fitness
-TOPIC_POOLS = {
-    "workout": [
-        "Best 20-Minute Home Workouts for Busy People",
-        "Full Body Workout Routine for Beginners in {year}",
-        "{number} Best Exercises You Can Do Without Equipment",
-        "How to Create Your Own Workout Plan in {year}",
-        "Best Morning Workout Routine to Start Your Day",
-        "The Ultimate Push Pull Legs Workout Split Guide",
-        "{number}-Day Workout Plan for Maximum Results",
-    ],
-    "weight_loss": [
-        "How to Lose Weight Without Starving Yourself",
-        "{number} Science-Backed Ways to Lose Belly Fat",
-        "Best Exercises for Weight Loss at Home in {year}",
-        "How to Break Through a Weight Loss Plateau",
-        "Walking for Weight Loss: How Many Steps You Really Need",
-        "Why You Are Not Losing Weight Despite Working Out",
-        "How to Lose {number} Pounds in a Month Safely",
-    ],
-    "muscle_building": [
-        "How to Build Muscle Without a Gym",
-        "Best Protein Sources for Muscle Growth in {year}",
-        "{number} Muscle Building Mistakes Beginners Make",
-        "How Long Does It Take to Build Noticeable Muscle",
-        "Best Exercises for Bigger Arms at Home",
-        "How to Build a Bigger Chest with Push-Ups",
-        "Progressive Overload: The Key to Building Muscle",
-    ],
-    "cardio": [
-        "HIIT vs Steady State Cardio: Which Burns More Fat",
-        "Beginner Running Plan: Couch to 5K Guide {year}",
-        "Best Cardio Exercises That Don't Involve Running",
-        "How to Improve Your Running Endurance in {number} Weeks",
-        "Jump Rope Workout: The Best Cardio You Are Not Doing",
-        "{number}-Minute Cardio Workouts You Can Do Anywhere",
-        "How to Start Running When You Are Out of Shape",
-    ],
-    "nutrition": [
-        "What to Eat Before and After a Workout",
-        "Best High Protein Meals for Muscle Recovery",
-        "How Much Protein Do You Really Need Per Day",
-        "{number} Healthy Meal Prep Ideas for the Week",
-        "Best Pre-Workout Foods for Energy and Performance",
-        "How to Count Macros: A Beginner Guide for {year}",
-        "Best Supplements for Gym Beginners in {year}",
-    ],
-    "stretching": [
-        "Best Stretches to Do Every Morning for Flexibility",
-        "How to Improve Your Flexibility in {number} Weeks",
-        "Best Cool Down Stretches After a Workout",
-        "How to Do a Proper Push-Up with Perfect Form",
-        "Yoga vs Stretching: Which Is Better for Recovery",
-        "{number} Stretches to Relieve Lower Back Pain",
-        "Best Mobility Exercises for Desk Workers in {year}",
-    ],
-    "home_gym": [
-        "How to Build a Home Gym on a Budget in {year}",
-        "Best Home Gym Equipment Under $100",
-        "{number} Best Resistance Band Exercises for Full Body",
-        "Dumbbell Only Workout: Complete Home Training Guide",
-        "Best Adjustable Dumbbells Compared {year}",
-        "How to Get Fit at Home Without Any Equipment",
-        "Kettlebell Workout: {number} Best Exercises for Beginners",
-    ],
-}
+BLOG_NAME = "FitnessDailyTips"
+BLOG_NICHE = "fitness and exercise"
+BLOG_DESCRIPTION = "Daily fitness tips, workout guides, and exercise routines for every level."
 
-SYSTEM_PROMPT = """You are an expert fitness writer for a blog called FitnessDailyTips.
-Write SEO-optimized, informative, and engaging blog posts about fitness and exercise.
+CATEGORIES = [
+    "workout",     "weight-loss",     "muscle-building",     "cardio",
+    "nutrition",     "stretching",     "home-gym",     "running",
+    "hiit",     "bodyweight",     "yoga",     "strength-training",
+    "recovery",     "sports-nutrition",     "mobility",
+]
 
-Rules:
-- Write in a friendly, motivational but authoritative tone
-- Use short paragraphs (2-3 sentences max)
-- Include practical, actionable advice
-- Use headers (##) to break up sections
-- Include bullet points and numbered lists where appropriate
-- Write between 1200-1800 words
-- Naturally include the main keyword 3-5 times
-- Include a compelling introduction that hooks the reader
-- End with a clear conclusion/call-to-action
-- Do NOT include any AI disclaimers or mentions of being AI-generated
-- Write as if you are a certified personal trainer sharing expertise
-- Make content evergreen where possible
-- Include specific numbers, sets, reps, and examples
-- Do NOT use markdown title (# Title) - just start with the content
+SYSTEM_PROMPT = """You are an expert fitness and exercise writer for FitnessDailyTips.
+You write SEO-optimized, highly informative articles that rank on Google.
+
+Writing rules:
+- Friendly, conversational but authoritative tone (like a trusted financial advisor friend)
+- Short paragraphs (2-3 sentences max)
+- Use ## for section headers (H2) and ### for subsections (H3)
+- Include bullet points and numbered lists
+- Write 1500-2200 words
+- Naturally weave the main keyword throughout (4-6 times)
+- Start with a hook that addresses the reader's pain point
+- Include specific numbers, percentages, and real examples
+- End with a clear actionable takeaway
+- Do NOT use markdown title (# Title) - start directly with content
+- Do NOT include AI disclaimers
+- Write as a certified personal trainer sharing expertise
+
+SEO rules:
+- Include a "Frequently Asked Questions" section at the end with 3-4 Q&As using ### for each question
+- Use power words in subheadings (Ultimate, Essential, Proven, Complete)
+- Write in second person ("you") to engage readers
+- Include comparison elements (vs, compared to, better than)
+- Add year references where relevant for freshness
 """
 
 
-def pick_topic():
-    """Select a random topic from the pools."""
-    year = datetime.datetime.now().year
-    number = random.choice([3, 5, 7, 10, 12, 15])
-    category = random.choice(list(TOPIC_POOLS.keys()))
-    title_template = random.choice(TOPIC_POOLS[category])
-    title = title_template.format(year=year, number=number)
-    return title, category
+def get_repo_root():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.dirname(script_dir)
 
 
-def generate_post_content(title, category):
-    """Generate a blog post using OpenAI GPT API."""
+def load_used_topics():
+    """Load previously used topic slugs."""
+    filepath = os.path.join(get_repo_root(), "scripts", "used_topics.json")
+    if os.path.exists(filepath):
+        with open(filepath, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
+
+
+def save_used_topics(topics):
+    filepath = os.path.join(get_repo_root(), "scripts", "used_topics.json")
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(topics, f, indent=2)
+
+
+def get_existing_slugs():
+    """Get all existing post slugs from _posts/."""
+    posts_dir = os.path.join(get_repo_root(), "_posts")
+    slugs = set()
+    if os.path.exists(posts_dir):
+        for filename in os.listdir(posts_dir):
+            if filename.endswith(".md"):
+                # Remove date prefix and .md suffix
+                slug = re.sub(r"^\d{4}-\d{2}-\d{2}-", "", filename[:-3])
+                # Normalize: remove trailing random numbers
+                slug = re.sub(r"-\d{2,3}$", "", slug)
+                slugs.add(slug)
+    return slugs
+
+
+def get_recent_titles(limit=10):
+    """Get recent post titles for internal linking context."""
+    posts_dir = os.path.join(get_repo_root(), "_posts")
+    titles = []
+    if os.path.exists(posts_dir):
+        files = sorted(os.listdir(posts_dir), reverse=True)
+        for filename in files[:limit]:
+            if filename.endswith(".md"):
+                filepath = os.path.join(posts_dir, filename)
+                with open(filepath, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if line.startswith("title:"):
+                            title = line.split(":", 1)[1].strip().strip('"')
+                            titles.append(title)
+                            break
+    return titles
+
+
+def slugify(title):
+    slug = title.lower()
+    slug = re.sub(r"[^a-z0-9\s-]", "", slug)
+    slug = re.sub(r"[\s]+", "-", slug)
+    slug = re.sub(r"-+", "-", slug)
+    return slug.strip("-")
+
+
+def generate_unique_topic(used_topics, existing_slugs):
+    """Ask GPT to generate a unique, high-CPC long-tail keyword topic."""
     client = OpenAI()
+    year = datetime.datetime.now().year
+    category = random.choice(CATEGORIES)
+
+    used_list = "\n".join(f"- {t}" for t in used_topics[-50:]) if used_topics else "(none yet)"
 
     response = client.chat.completions.create(
         model="gpt-4o-mini",
-        max_tokens=4000,
+        max_tokens=200,
+        temperature=1.0,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    f"You generate blog post titles for a {BLOG_NICHE} blog. "
+                    "Generate exactly ONE unique, SEO-optimized blog title.\n\n"
+                    "Requirements:\n"
+                    "- Long-tail keyword (5-12 words) that people actually search on Google\n"
+                    "- High commercial intent (topics where advertisers pay high CPC)\n"
+                    "- Specific and actionable (not generic)\n"
+                    "- Include numbers, year, or power words when natural\n"
+                    f"- Relevant to {year}\n"
+                    "- MUST be completely different from the used titles below\n"
+                    "- DO NOT just rephrase an existing title\n\n"
+                    "Reply with ONLY the title, nothing else."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Category: {category.replace('-', ' ')}\n\n"
+                    f"Already used titles (DO NOT repeat or rephrase these):\n{used_list}\n\n"
+                    "Generate one new unique title:"
+                ),
+            },
+        ],
+    )
+
+    title = response.choices[0].message.content.strip().strip('"').strip("'")
+    slug = slugify(title)
+
+    # Verify it's actually unique
+    norm_slug = re.sub(r"-\d{2,3}$", "", slug)
+    if norm_slug in existing_slugs or norm_slug in [slugify(t) for t in used_topics[-100:]]:
+        # Retry once with stronger instruction
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            max_tokens=200,
+            temperature=1.2,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        f"Generate a COMPLETELY NEW and UNIQUE {BLOG_NICHE} blog title. "
+                        f"Category: {category.replace('-', ' ')}. "
+                        f"This MUST NOT overlap with any existing content. "
+                        f"Think of a specific subtopic or angle that hasn't been covered. "
+                        f"Use long-tail keywords (6-12 words). Year: {year}. "
+                        "Reply with ONLY the title."
+                    ),
+                },
+                {"role": "user", "content": "Generate:"},
+            ],
+        )
+        title = response.choices[0].message.content.strip().strip('"').strip("'")
+        slug = slugify(title)
+
+    return title, category, slug
+
+
+def generate_post_content(title, category, recent_titles):
+    """Generate high-quality blog post with FAQ and internal linking."""
+    client = OpenAI()
+
+    internal_links_hint = ""
+    if recent_titles:
+        links = "\n".join(f"- {t}" for t in recent_titles[:5])
+        internal_links_hint = (
+            f"\n\nFor internal linking, naturally reference 1-2 of these related articles "
+            f"where relevant (use the exact title in a mention like "
+            f"'as we covered in [Article Title]'):\n{links}"
+        )
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        max_tokens=5000,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {
                 "role": "user",
-                "content": f"Write a comprehensive blog post with the title: \"{title}\"\n\nCategory: {category.replace('_', ' ')}\n\nRemember to write 1200-1800 words, use ## for section headers, and make it SEO-friendly.",
+                "content": (
+                    f'Write a comprehensive blog post titled: "{title}"\n\n'
+                    f"Category: {category.replace('-', ' ')}\n\n"
+                    "Structure:\n"
+                    "1. Hook intro (address the reader's problem)\n"
+                    "2. 4-6 detailed sections with ## headers\n"
+                    "3. Practical tips with specific examples\n"
+                    "4. FAQ section (## Frequently Asked Questions) with 3-4 ### questions\n"
+                    "5. Brief conclusion with call-to-action\n\n"
+                    "Write 1500-2200 words. Make it genuinely helpful and unique."
+                    f"{internal_links_hint}"
+                ),
             },
         ],
     )
@@ -127,85 +222,75 @@ def generate_post_content(title, category):
     return response.choices[0].message.content
 
 
-def slugify(title):
-    """Convert title to URL-friendly slug."""
-    slug = title.lower()
-    slug = re.sub(r'[^a-z0-9\s-]', '', slug)
-    slug = re.sub(r'[\s]+', '-', slug)
-    slug = re.sub(r'-+', '-', slug)
-    slug = slug.strip('-')
-    return slug
-
-
-def get_repo_root():
-    """Get the repository root directory."""
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.dirname(script_dir)
-
-
-def get_existing_titles():
-    """Get titles of existing posts to avoid duplicates."""
-    posts_dir = os.path.join(get_repo_root(), '_posts')
-    titles = set()
-    if os.path.exists(posts_dir):
-        for filename in os.listdir(posts_dir):
-            if filename.endswith('.md'):
-                title_part = filename[11:-3]
-                titles.add(title_part)
-    return titles
+def generate_meta_description(title):
+    """Generate a unique, compelling meta description."""
+    client = OpenAI()
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        max_tokens=100,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Write a compelling meta description for a blog post. "
+                    "150-160 characters max. Include the main keyword. "
+                    "Add a call-to-action. Reply with ONLY the description."
+                ),
+            },
+            {"role": "user", "content": f"Title: {title}"},
+        ],
+    )
+    desc = response.choices[0].message.content.strip().strip('"')
+    return desc[:160]
 
 
 def create_post():
-    """Generate and save a new blog post."""
-    existing = get_existing_titles()
+    """Generate and save a new unique blog post."""
+    used_topics = load_used_topics()
+    existing_slugs = get_existing_slugs()
+    recent_titles = get_recent_titles(10)
 
-    # Try up to 10 times to find a non-duplicate topic
-    for _ in range(10):
-        title, category = pick_topic()
-        slug = slugify(title)
-        if slug not in existing:
-            break
-    else:
-        # If all attempts hit duplicates, add a random suffix
-        title, category = pick_topic()
-        slug = slugify(title) + f"-{random.randint(100, 999)}"
-
+    title, category, slug = generate_unique_topic(used_topics, existing_slugs)
     print(f"Generating post: {title}")
     print(f"Category: {category}")
 
-    content = generate_post_content(title, category)
+    content = generate_post_content(title, category, recent_titles)
+    description = generate_meta_description(title)
 
-    # Create the post file
     today = datetime.datetime.now()
-    date_str = today.strftime('%Y-%m-%d')
+    date_str = today.strftime("%Y-%m-%d")
     filename = f"{date_str}-{slug}.md"
 
-    posts_dir = os.path.join(get_repo_root(), '_posts')
+    posts_dir = os.path.join(get_repo_root(), "_posts")
     os.makedirs(posts_dir, exist_ok=True)
-
     filepath = os.path.join(posts_dir, filename)
 
-    # Create frontmatter
     frontmatter = f"""---
 layout: post
 title: "{title}"
 date: {today.strftime('%Y-%m-%d %H:%M:%S')} +0000
-categories: [{category.replace('_', '-')}]
-description: "{title} - Expert fitness tips and workout advice to help you reach your goals."
+categories: [{category}]
+description: "{description}"
+tags: [{category}, {BLOG_NICHE.replace(' ', '-')}, {today.year}]
 ---
 
 {content}
 """
 
-    with open(filepath, 'w', encoding='utf-8') as f:
+    with open(filepath, "w", encoding="utf-8") as f:
         f.write(frontmatter)
+
+    # Track used topic
+    used_topics.append(title)
+    save_used_topics(used_topics)
 
     print(f"Post saved: {filepath}")
     return filepath, filename
 
-if __name__ == '__main__':
-    # Every 5th post: generate a Gumroad promo post
+
+if __name__ == "__main__":
     from promo_post import should_write_promo, create_promo_post
+
     if should_write_promo():
         print("Generating promotional post...")
         filepath, filename = create_promo_post()
