@@ -1,4 +1,4 @@
 ---
 layout: home
-title: FitnessDailyTips - Your Daily Fitness & Workout Guide
+title: "FitnessDailyTips &mdash; Practical fitness advice from someone who actually trains every week."
 ---
