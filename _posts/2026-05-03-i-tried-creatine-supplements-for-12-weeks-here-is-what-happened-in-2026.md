@@ -7,6 +7,8 @@ description: "Discover the effects of creatine supplements in my 12-week journey
 tags: [muscle-building, fitness-and-exercise, 2026]
 ---
 
+![I Tried Creatine Supplements for 12 Weeks - Here Is What Happened in 2026](/FitnessDailyTips/assets/pin-images/2026-05-03-i-tried-creatine-supplements-for-12-weeks-here-is-what-happened-in-2026.png)
+
 When I decided to test creatine supplements for 12 weeks in early 2026, I did it with a lot of curiosity and more than a touch of skepticism. I'd seen my friends rave about their gains—one even added 15 pounds to his bench press while I barely managed 5. I was tired of feeling stuck at a plateau, so I invested around $70 into a reputable brand: Optimum Nutrition Creatine Powder. I approached this experiment not just to see if I'd gain muscle mass but to track the subtler impacts on my energy levels, recovery times, and overall performance across a variety of workouts.
 
 ## How I Researched This

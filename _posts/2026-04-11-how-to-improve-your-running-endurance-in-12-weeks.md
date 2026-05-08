@@ -6,6 +6,8 @@ categories: [cardio]
 description: "How to Improve Your Running Endurance in 12 Weeks - Expert fitness tips and workout advice to help you reach your goals."
 ---
 
+![How to Improve Your Running Endurance in 12 Weeks](/FitnessDailyTips/assets/pin-images/2026-04-11-how-to-improve-your-running-endurance-in-12-weeks.png)
+
 To truly enjoy the benefits of running, improving your endurance is key. Whether you’re training for a marathon, a fun run, or just looking to enhance your fitness levels, building endurance can transform your running experience. In this blog post, we will explore a structured 12-week plan to elevate your running endurance, providing you with actionable advice every step of the way.
 
 ## Understanding Running Endurance
