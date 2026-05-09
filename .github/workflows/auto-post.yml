@@ -23,7 +23,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install openai
+        run: pip install openai Pillow
 
       - name: Generate new post (with retry on transient failures)
         uses: nick-fields/retry@v3
@@ -39,7 +39,7 @@ jobs:
         run: |
           git config user.name "FitnessDailyTips Bot"
           git config user.email "bot@fitnessdailytips.com"
-          git add _posts/ scripts/used_topics.json scripts/used_promo_titles.json
+          git add _posts/ scripts/used_topics.json scripts/used_promo_titles.json assets/pin-images/
           git diff --staged --quiet || git commit -m "Auto-publish new article $(date +%Y-%m-%d-%H%M)"
           git push
 
